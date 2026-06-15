@@ -1,0 +1,18 @@
+{
+  "name": "ระบบแจ้งงาน บก.อก.",
+  "short_name": "บก.อก.",
+  "description": "ระบบแจ้งงานภายใน กองบัญชาการตำรวจสืบสวนสอบสวนอาชญากรรมทางเทคโนโลยี",
+  "start_url": "/task-board/",
+  "display": "standalone",
+  "background_color": "#1a2744",
+  "theme_color": "#1a2744",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
