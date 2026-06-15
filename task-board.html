@@ -1,0 +1,650 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ระบบแจ้งงาน — บก.อำนวยการ</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap');
+
+  :root {
+    --navy: #1a2744; --navy-mid: #243257; --navy-light: #2e4070;
+    --gold: #c9a84c; --gold-light: #e8c97a;
+    --cream: #f7f5f0; --white: #ffffff;
+    --text-dark: #1a2744; --text-mid: #4a5568; --text-light: #8a9bb0;
+    --border: #dde3ed; --red: #e53e3e; --green: #2f855a;
+    --status-pending-bg: #f0f4ff; --status-pending-cl: #3b5bdb;
+    --status-inprogress-bg: #fff8e1; --status-inprogress-cl: #c47d00;
+    --status-done-bg: #e6f9f0; --status-done-cl: #2f855a;
+    --status-overdue-bg: #fff0f0; --status-overdue-cl: #c53030;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Sarabun', sans-serif; background: var(--cream); color: var(--text-dark); min-height: 100vh; }
+
+  /* OVERLAY */
+  .overlay { position: fixed; inset: 0; background: rgba(26,39,68,0.7); display: flex; align-items: center; justify-content: center; z-index: 100; backdrop-filter: blur(4px); }
+  .overlay.hidden { display: none; }
+  .modal { background: var(--white); border-radius: 16px; padding: 40px 36px; width: 380px; max-width: 95vw; box-shadow: 0 24px 60px rgba(26,39,68,0.25); }
+  .modal-logo { text-align: center; margin-bottom: 28px; }
+  .modal-logo .emblem { width: 56px; height: 56px; background: var(--navy); border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 24px; margin-bottom: 12px; }
+  .modal-logo h2 { font-size: 20px; font-weight: 700; color: var(--navy); }
+  .modal-logo p { font-size: 13px; color: var(--text-light); margin-top: 2px; }
+  .modal h3 { font-size: 16px; font-weight: 600; color: var(--navy); margin-bottom: 20px; text-align: center; }
+  .unit-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 20px; }
+  .unit-btn { padding: 14px 10px; border: 2px solid var(--border); border-radius: 10px; background: var(--white); cursor: pointer; font-family: 'Sarabun', sans-serif; font-size: 14px; font-weight: 500; color: var(--text-dark); text-align: center; transition: all 0.15s; }
+  .unit-btn:hover { border-color: var(--navy); background: #f0f3fa; }
+  .unit-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; margin-right: 6px; }
+  .pin-row { display: flex; gap: 10px; margin-bottom: 16px; justify-content: center; }
+  .pin-digit { width: 48px; height: 56px; border: 2px solid var(--border); border-radius: 10px; font-size: 20px; font-weight: 700; text-align: center; color: var(--navy); font-family: 'Sarabun', sans-serif; background: var(--cream); transition: border-color 0.15s; }
+  .pin-digit:focus { outline: none; border-color: var(--navy); background: var(--white); }
+  .btn-primary { width: 100%; padding: 13px; background: var(--navy); color: var(--white); border: none; border-radius: 10px; font-family: 'Sarabun', sans-serif; font-size: 15px; font-weight: 600; cursor: pointer; transition: background 0.15s; margin-bottom: 10px; }
+  .btn-primary:hover { background: var(--navy-light); }
+  .btn-ghost { width: 100%; padding: 11px; background: transparent; color: var(--text-mid); border: 1.5px solid var(--border); border-radius: 10px; font-family: 'Sarabun', sans-serif; font-size: 14px; cursor: pointer; transition: all 0.15s; }
+  .btn-ghost:hover { border-color: var(--navy); color: var(--navy); }
+  .error-msg { text-align: center; font-size: 13px; color: var(--red); margin-bottom: 14px; min-height: 18px; }
+  .admin-link { text-align: center; margin-top: 14px; font-size: 13px; color: var(--text-light); }
+  .admin-link a { color: var(--gold); cursor: pointer; text-decoration: none; font-weight: 500; }
+  .admin-link a:hover { text-decoration: underline; }
+
+  /* HEADER */
+  header { background: var(--navy); padding: 0 24px; height: 60px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 50; box-shadow: 0 2px 12px rgba(26,39,68,0.3); }
+  .header-left { display: flex; align-items: center; gap: 12px; }
+  .header-title { color: var(--white); font-size: 16px; font-weight: 700; }
+  .header-subtitle { color: var(--gold-light); font-size: 12px; }
+  .header-right { display: flex; align-items: center; gap: 12px; }
+  .role-badge { padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; }
+  .role-badge.director { background: var(--gold); color: var(--navy); }
+  .role-badge.admin { background: #2e4070; color: #a8c0ff; border: 1px solid #4a6090; }
+  .role-badge.user { background: rgba(255,255,255,0.12); color: rgba(255,255,255,0.7); }
+  .btn-logout { background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); color: var(--white); padding: 6px 14px; border-radius: 8px; font-family: 'Sarabun', sans-serif; font-size: 13px; cursor: pointer; transition: background 0.15s; }
+  .btn-logout:hover { background: rgba(255,255,255,0.2); }
+
+  /* MAIN */
+  .main-wrap { max-width: 900px; margin: 0 auto; padding: 28px 20px 60px; }
+  .page-top { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 20px; gap: 12px; }
+  .page-top h1 { font-size: 26px; font-weight: 700; color: var(--navy); line-height: 1.2; }
+  .page-top .sub { font-size: 13px; color: var(--text-light); margin-top: 3px; }
+  .btn-add { display: flex; align-items: center; gap: 8px; padding: 10px 20px; background: var(--navy); color: var(--white); border: none; border-radius: 10px; font-family: 'Sarabun', sans-serif; font-size: 14px; font-weight: 600; cursor: pointer; white-space: nowrap; transition: background 0.15s; flex-shrink: 0; }
+  .btn-add:hover { background: var(--navy-light); }
+
+  /* SUMMARY CARDS */
+  .summary-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 20px; }
+  .summary-card { background: var(--white); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; text-align: center; }
+  .summary-card .num { font-size: 28px; font-weight: 700; line-height: 1; }
+  .summary-card .lbl { font-size: 11px; color: var(--text-light); margin-top: 4px; }
+  .summary-card.overdue .num { color: var(--status-overdue-cl); }
+  .summary-card.inprogress .num { color: var(--status-inprogress-cl); }
+  .summary-card.done .num { color: var(--status-done-cl); }
+  .summary-card.total .num { color: var(--navy); }
+
+  /* TABS */
+  .unit-tabs { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
+  .unit-tab { padding: 7px 16px; border-radius: 20px; font-size: 13px; font-weight: 500; cursor: pointer; border: 1.5px solid var(--border); background: var(--white); color: var(--text-mid); transition: all 0.15s; font-family: 'Sarabun', sans-serif; }
+  .unit-tab.active { background: var(--navy); color: var(--white); border-color: var(--navy); }
+  .unit-tab:hover:not(.active) { border-color: var(--navy); color: var(--navy); }
+
+  /* FILTER ROW */
+  .filter-row { display: flex; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; align-items: center; }
+  .search-wrap { position: relative; flex: 1; min-width: 180px; }
+  .search-icon { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--text-light); }
+  .search-input { width: 100%; padding: 10px 12px 10px 36px; border: 1.5px solid var(--border); border-radius: 10px; font-family: 'Sarabun', sans-serif; font-size: 14px; color: var(--text-dark); background: var(--white); }
+  .search-input:focus { outline: none; border-color: var(--navy); }
+  .search-input::placeholder { color: var(--text-light); }
+  .filter-select { padding: 10px 12px; border: 1.5px solid var(--border); border-radius: 10px; font-family: 'Sarabun', sans-serif; font-size: 13px; color: var(--text-dark); background: var(--white); cursor: pointer; }
+  .filter-select:focus { outline: none; border-color: var(--navy); }
+
+  /* TASK CARDS */
+  .task-list { display: flex; flex-direction: column; gap: 8px; }
+  .task-card { background: var(--white); border: 1px solid var(--border); border-left: 4px solid var(--navy); border-radius: 0 10px 10px 0; padding: 14px 16px; display: flex; gap: 14px; transition: box-shadow 0.15s; }
+  .task-card:hover { box-shadow: 0 4px 16px rgba(26,39,68,0.09); }
+  .task-card[data-unit="0"] { border-left-color: #2e4070; }
+  .task-card[data-unit="1"] { border-left-color: #1a6b5c; }
+  .task-card[data-unit="2"] { border-left-color: #7b3f00; }
+  .task-date-col { min-width: 60px; text-align: center; padding-top: 2px; flex-shrink: 0; }
+  .task-date-day { font-size: 22px; font-weight: 700; color: var(--navy); line-height: 1; }
+  .task-date-month { font-size: 11px; font-weight: 500; color: var(--text-light); text-transform: uppercase; margin-top: 2px; }
+  .task-date-year { font-size: 10px; color: var(--text-light); }
+  .task-divider { width: 1px; background: var(--border); flex-shrink: 0; }
+  .task-body { flex: 1; min-width: 0; }
+  .task-title { font-size: 15px; font-weight: 600; color: var(--navy); line-height: 1.4; margin-bottom: 3px; }
+  .task-detail { font-size: 13px; color: var(--text-mid); line-height: 1.5; }
+  .task-link { display: inline-block; margin-top: 6px; font-size: 12px; color: var(--gold); text-decoration: none; font-weight: 500; word-break: break-all; }
+  .task-link:hover { text-decoration: underline; }
+  .task-footer { display: flex; align-items: center; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+
+  /* STATUS BADGE */
+  .status-badge { display: inline-flex; align-items: center; gap: 4px; padding: 3px 10px; border-radius: 12px; font-size: 11px; font-weight: 600; }
+  .status-badge.pending { background: var(--status-pending-bg); color: var(--status-pending-cl); }
+  .status-badge.inprogress { background: var(--status-inprogress-bg); color: var(--status-inprogress-cl); }
+  .status-badge.done { background: var(--status-done-bg); color: var(--status-done-cl); }
+  .status-badge.overdue { background: var(--status-overdue-bg); color: var(--status-overdue-cl); }
+
+  .due-badge { font-size: 11px; color: var(--text-light); }
+  .due-badge.near { color: var(--status-inprogress-cl); font-weight: 600; }
+  .due-badge.over { color: var(--status-overdue-cl); font-weight: 600; }
+
+  .tag { padding: 2px 10px; border-radius: 12px; font-size: 11px; font-weight: 600; }
+  .tag-unit-0 { background: #e8edf7; color: #2e4070; }
+  .tag-unit-1 { background: #e0f0eb; color: #1a6b5c; }
+  .tag-unit-2 { background: #f5e8d8; color: #7b3f00; }
+
+  .task-actions { display: flex; flex-direction: column; gap: 6px; align-items: flex-end; flex-shrink: 0; }
+  .btn-icon { width: 32px; height: 32px; border-radius: 8px; border: 1.5px solid var(--border); background: var(--white); cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 14px; color: var(--text-mid); transition: all 0.15s; }
+  .btn-icon:hover { border-color: var(--navy); color: var(--navy); }
+  .btn-icon.delete:hover { border-color: var(--red); color: var(--red); }
+
+  /* STATUS SELECT (inline) */
+  .status-select { padding: 3px 8px; border: 1.5px solid var(--border); border-radius: 8px; font-family: 'Sarabun', sans-serif; font-size: 12px; color: var(--text-dark); background: var(--white); cursor: pointer; }
+  .status-select:focus { outline: none; border-color: var(--navy); }
+
+  .empty-state { text-align: center; padding: 60px 20px; color: var(--text-light); }
+  .empty-state .icon { font-size: 40px; margin-bottom: 12px; }
+
+  /* FORM MODAL */
+  .modal-wide { width: 520px; max-height: 90vh; overflow-y: auto; }
+  .modal-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; }
+  .modal-header h3 { font-size: 18px; font-weight: 700; color: var(--navy); }
+  .btn-close { background: none; border: none; cursor: pointer; font-size: 20px; color: var(--text-light); padding: 4px; line-height: 1; }
+  .btn-close:hover { color: var(--red); }
+  .form-group { margin-bottom: 14px; }
+  .form-label { display: block; font-size: 13px; font-weight: 600; color: var(--text-dark); margin-bottom: 5px; }
+  .form-input, .form-textarea, .form-select { width: 100%; padding: 10px 12px; border: 1.5px solid var(--border); border-radius: 8px; font-family: 'Sarabun', sans-serif; font-size: 14px; color: var(--text-dark); background: var(--white); transition: border-color 0.15s; }
+  .form-input:focus, .form-textarea:focus, .form-select:focus { outline: none; border-color: var(--navy); }
+  .form-textarea { resize: vertical; min-height: 70px; }
+  .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .form-section { font-size: 12px; font-weight: 700; color: var(--text-light); letter-spacing: 0.07em; text-transform: uppercase; margin: 18px 0 10px; padding-bottom: 6px; border-bottom: 1px solid var(--border); }
+
+  @media (max-width: 640px) {
+    .summary-row { grid-template-columns: repeat(2,1fr); }
+    .form-row { grid-template-columns: 1fr; }
+    .task-card { flex-wrap: wrap; }
+    .page-top { flex-direction: column; }
+    .modal-wide { width: 95vw; }
+  }
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div class="overlay" id="loginOverlay">
+  <div class="modal">
+    <div class="modal-logo">
+      <div class="emblem">🏛️</div>
+      <h2>บก.อำนวยการ</h2>
+      <p>ระบบแจ้งงานภายใน</p>
+    </div>
+    <div id="stepUnit">
+      <div class="unit-grid" id="unitGrid"></div>
+      <div class="admin-link"><a onclick="showDirectorLogin()">👑 ผู้บริหารสูงสุด →</a></div>
+    </div>
+    <div id="stepUnitAction" style="display:none">
+      <h3 id="selectedUnitName"></h3>
+      <button class="btn-primary" onclick="loginAsUser()">👁 เข้าดูงาน</button>
+      <button class="btn-ghost" onclick="showUnitAdminPin()">⚙️ เข้าระบบ Admin</button>
+      <br><br>
+      <button class="btn-ghost" onclick="backToUnitSelect()">← เปลี่ยนหน่วยงาน</button>
+    </div>
+    <div id="stepUnitPin" style="display:none">
+      <h3 id="pinTitle">PIN ผู้ดูแล</h3>
+      <div class="pin-row" id="pinRow"></div>
+      <div class="error-msg" id="pinError"></div>
+      <button class="btn-primary" onclick="submitPin()">เข้าสู่ระบบ</button>
+      <button class="btn-ghost" onclick="backToUnitAction()">← ย้อนกลับ</button>
+    </div>
+    <div id="stepDirectorPin" style="display:none">
+      <h3>ผู้บริหารสูงสุด — ใส่ PIN</h3>
+      <div class="pin-row" id="dirPinRow"></div>
+      <div class="error-msg" id="dirPinError"></div>
+      <button class="btn-primary" onclick="submitDirectorPin()">เข้าสู่ระบบ</button>
+      <button class="btn-ghost" onclick="backToUnitSelect()">← ย้อนกลับ</button>
+    </div>
+  </div>
+</div>
+
+<!-- TASK MODAL -->
+<div class="overlay hidden" id="taskOverlay">
+  <div class="modal modal-wide">
+    <div class="modal-header">
+      <h3 id="taskModalTitle">เพิ่มงานใหม่</h3>
+      <button class="btn-close" onclick="closeTaskModal()">✕</button>
+    </div>
+    <div class="form-group">
+      <label class="form-label">ชื่องาน / หัวข้อ *</label>
+      <input class="form-input" id="fTitle" placeholder="เช่น ประชุมคณะกรรมการ ครั้งที่ 3">
+    </div>
+    <div class="form-section">📅 วันที่จัดกิจกรรม</div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">วันที่เริ่ม *</label>
+        <input type="date" class="form-input" id="fDateStart">
+      </div>
+      <div class="form-group">
+        <label class="form-label">วันที่สิ้นสุด</label>
+        <input type="date" class="form-input" id="fDateEnd">
+      </div>
+    </div>
+    <div class="form-section">📋 การติดตาม</div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">วันครบกำหนดส่ง</label>
+        <input type="date" class="form-input" id="fDueDate">
+      </div>
+      <div class="form-group">
+        <label class="form-label">สถานะ</label>
+        <select class="form-select" id="fStatus">
+          <option value="pending">⚪ รอดำเนินการ</option>
+          <option value="inprogress">🟡 กำลังดำเนินการ</option>
+          <option value="done">🟢 ส่งแล้ว / เสร็จแล้ว</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">รายละเอียด / สถานที่</label>
+      <textarea class="form-textarea" id="fDetail" placeholder="เวลา สถานที่ หรือรายละเอียดเพิ่มเติม"></textarea>
+    </div>
+    <div class="form-group">
+      <label class="form-label">หมายเหตุ / ความคืบหน้า</label>
+      <textarea class="form-textarea" id="fNote" placeholder="บันทึกความคืบหน้า หรือหมายเหตุเพิ่มเติม" style="min-height:55px"></textarea>
+    </div>
+    <div class="form-group">
+      <label class="form-label">ลิงก์เอกสาร (ถ้ามี)</label>
+      <input class="form-input" id="fLink" placeholder="https://drive.google.com/...">
+    </div>
+    <div class="error-msg" id="taskError"></div>
+    <button class="btn-primary" onclick="saveTask()">บันทึกงาน</button>
+    <button class="btn-ghost" onclick="closeTaskModal()">ยกเลิก</button>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="app" style="display:none">
+  <header>
+    <div class="header-left">
+      <span style="font-size:20px">🏛️</span>
+      <div>
+        <div class="header-title">บก.อำนวยการ</div>
+        <div class="header-subtitle" id="headerSub"></div>
+      </div>
+    </div>
+    <div class="header-right">
+      <span class="role-badge" id="roleBadge"></span>
+      <button class="btn-logout" onclick="logout()">ออกจากระบบ</button>
+    </div>
+  </header>
+
+  <div class="main-wrap">
+    <div class="page-top">
+      <div>
+        <h1 id="pageTitle">งานทั้งหมด</h1>
+        <div class="sub" id="pageSubtitle"></div>
+      </div>
+      <button class="btn-add" id="btnAdd" onclick="openAddTask()" style="display:none">
+        <span style="font-size:18px;font-weight:300">+</span> เพิ่มงาน
+      </button>
+    </div>
+
+    <!-- Summary -->
+    <div class="summary-row" id="summaryRow"></div>
+
+    <!-- Unit tabs (director) -->
+    <div class="unit-tabs" id="unitTabs" style="display:none"></div>
+
+    <!-- Filters -->
+    <div class="filter-row">
+      <div class="search-wrap">
+        <span class="search-icon">🔍</span>
+        <input class="search-input" id="searchInput" placeholder="ค้นหางาน..." oninput="renderTasks()">
+      </div>
+      <select class="filter-select" id="filterStatus" onchange="renderTasks()">
+        <option value="">สถานะทั้งหมด</option>
+        <option value="pending">⚪ รอดำเนินการ</option>
+        <option value="inprogress">🟡 กำลังดำเนินการ</option>
+        <option value="done">🟢 ส่งแล้ว</option>
+        <option value="overdue">🔴 เกินกำหนด</option>
+      </select>
+    </div>
+
+    <div class="task-list" id="taskList"></div>
+  </div>
+</div>
+
+<script>
+// ============================================================
+// CONFIG — แก้ไขได้
+// ============================================================
+const CONFIG = {
+  units: [
+    { id:0, name:"งานสำนักงาน",   short:"สนง.", color:"#2e4070", adminPin:"1001" },
+    { id:1, name:"งานยุทธศาสตร์", short:"ยศ.",  color:"#1a6b5c", adminPin:"1002" },
+    { id:2, name:"งานต่างประเทศ", short:"ตปท.", color:"#7b3f00", adminPin:"1003" },
+  ],
+  directorPin: "1234",
+};
+
+// ---- State ----
+let session = { role: null, unitId: null };
+let tasks = loadTasks();
+let editingId = null;
+let directorViewUnit = null;
+
+function loadTasks() {
+  try { return JSON.parse(localStorage.getItem('bko_tasks') || '[]'); } catch { return []; }
+}
+function saveTasks() { localStorage.setItem('bko_tasks', JSON.stringify(tasks)); }
+
+// ---- Status helpers ----
+const STATUS_LABEL = { pending:'รอดำเนินการ', inprogress:'กำลังดำเนินการ', done:'ส่งแล้ว' };
+const STATUS_ICON  = { pending:'⚪', inprogress:'🟡', done:'🟢', overdue:'🔴' };
+
+function getEffectiveStatus(task) {
+  if (task.status === 'done') return 'done';
+  if (task.dueDate) {
+    const today = new Date(); today.setHours(0,0,0,0);
+    const due = new Date(task.dueDate + 'T00:00:00');
+    if (due < today) return 'overdue';
+  }
+  return task.status || 'pending';
+}
+
+function dueDateText(task) {
+  if (!task.dueDate || task.status === 'done') return '';
+  const today = new Date(); today.setHours(0,0,0,0);
+  const due = new Date(task.dueDate + 'T00:00:00');
+  const diff = Math.round((due - today) / 86400000);
+  const d = formatDateDisplay(task.dueDate);
+  const dateStr = `${d.day} ${d.month} ${d.year}`;
+  if (diff < 0) return { text:`เกินกำหนด ${Math.abs(diff)} วัน (${dateStr})`, cls:'over' };
+  if (diff === 0) return { text:`ครบกำหนดวันนี้! (${dateStr})`, cls:'near' };
+  if (diff <= 3) return { text:`ครบกำหนดใน ${diff} วัน (${dateStr})`, cls:'near' };
+  return { text:`ครบกำหนด ${dateStr}`, cls:'' };
+}
+
+// ============================================================
+// LOGIN
+// ============================================================
+function buildLoginUI() {
+  const grid = document.getElementById('unitGrid');
+  grid.innerHTML = '';
+  CONFIG.units.forEach(u => {
+    const btn = document.createElement('button');
+    btn.className = 'unit-btn';
+    btn.innerHTML = `<span class="unit-dot" style="background:${u.color}"></span>${u.name}`;
+    btn.onclick = () => selectUnit(u.id);
+    grid.appendChild(btn);
+  });
+}
+
+let selectedUnitId = null;
+
+function selectUnit(id) {
+  selectedUnitId = id;
+  document.getElementById('stepUnit').style.display = 'none';
+  document.getElementById('stepUnitAction').style.display = 'block';
+  document.getElementById('selectedUnitName').textContent = CONFIG.units[id].name;
+}
+function loginAsUser() { session = { role:'user', unitId:selectedUnitId }; enterApp(); }
+function showUnitAdminPin() {
+  document.getElementById('stepUnitAction').style.display = 'none';
+  document.getElementById('stepUnitPin').style.display = 'block';
+  document.getElementById('pinTitle').textContent = `PIN Admin — ${CONFIG.units[selectedUnitId].name}`;
+  buildPinInputs('pinRow','pinError');
+}
+function showDirectorLogin() {
+  document.getElementById('stepUnit').style.display = 'none';
+  document.getElementById('stepDirectorPin').style.display = 'block';
+  buildPinInputs('dirPinRow','dirPinError');
+}
+function buildPinInputs(rowId, errId) {
+  const row = document.getElementById(rowId);
+  row.innerHTML = '';
+  document.getElementById(errId).textContent = '';
+  for (let i=0;i<4;i++) {
+    const inp = document.createElement('input');
+    inp.type='password'; inp.maxLength=1; inp.inputMode='numeric'; inp.className='pin-digit';
+    inp.addEventListener('input', e => { if(e.target.value && i<3) row.children[i+1].focus(); });
+    inp.addEventListener('keydown', e => { if(e.key==='Backspace'&&!e.target.value&&i>0) row.children[i-1].focus(); });
+    row.appendChild(inp);
+  }
+  row.children[0].focus();
+}
+function getPin(rowId) { return Array.from(document.getElementById(rowId).children).map(i=>i.value).join(''); }
+function submitPin() {
+  const pin = getPin('pinRow');
+  if (pin === CONFIG.units[selectedUnitId].adminPin) { session={role:'admin',unitId:selectedUnitId}; enterApp(); }
+  else { document.getElementById('pinError').textContent='PIN ไม่ถูกต้อง'; document.getElementById('pinRow').children[0].focus(); }
+}
+function submitDirectorPin() {
+  const pin = getPin('dirPinRow');
+  if (pin === CONFIG.directorPin) { session={role:'director',unitId:null}; enterApp(); }
+  else { document.getElementById('dirPinError').textContent='PIN ไม่ถูกต้อง'; document.getElementById('dirPinRow').children[0].focus(); }
+}
+function backToUnitSelect() {
+  selectedUnitId=null;
+  ['stepUnitAction','stepUnitPin','stepDirectorPin'].forEach(id=>document.getElementById(id).style.display='none');
+  document.getElementById('stepUnit').style.display='block';
+}
+function backToUnitAction() {
+  document.getElementById('stepUnitPin').style.display='none';
+  document.getElementById('stepUnitAction').style.display='block';
+}
+function logout() {
+  session={role:null,unitId:null}; directorViewUnit=null;
+  document.getElementById('app').style.display='none';
+  document.getElementById('loginOverlay').classList.remove('hidden');
+  backToUnitSelect();
+}
+
+// ============================================================
+// APP
+// ============================================================
+function enterApp() {
+  document.getElementById('loginOverlay').classList.add('hidden');
+  document.getElementById('app').style.display='block';
+  const u = session.unitId!==null ? CONFIG.units[session.unitId] : null;
+  document.getElementById('headerSub').textContent =
+    session.role==='director' ? 'ผู้บริหารสูงสุด' :
+    session.role==='admin'    ? `Admin — ${u.name}` : u.name;
+  const badge = document.getElementById('roleBadge');
+  badge.className = 'role-badge '+session.role;
+  badge.textContent = session.role==='director'?'👑 ผู้บริหาร':session.role==='admin'?'⚙️ Admin':'👁 ผู้ใช้งาน';
+  document.getElementById('pageTitle').textContent = session.role==='director'?'งานทั้งหมด':`งาน${u?u.name:''}`;
+  document.getElementById('pageSubtitle').textContent =
+    session.role==='director'?'ภาพรวมทุกหน่วยงาน':
+    session.role==='admin'?'สามารถเพิ่ม แก้ไข อัปเดตสถานะ และลบงานได้':'แสดงเฉพาะงานของหน่วยงานคุณ';
+  document.getElementById('btnAdd').style.display = session.role==='admin'?'flex':'none';
+
+  // Unit tabs
+  const tabs = document.getElementById('unitTabs');
+  if (session.role==='director') {
+    tabs.style.display='flex';
+    tabs.innerHTML=`<button class="unit-tab ${directorViewUnit===null?'active':''}" onclick="setDirectorTab(null)">ทุกหน่วย</button>`;
+    CONFIG.units.forEach(u=>{ tabs.innerHTML+=`<button class="unit-tab ${directorViewUnit===u.id?'active':''}" onclick="setDirectorTab(${u.id})">${u.name}</button>`; });
+  } else { tabs.style.display='none'; }
+
+  renderSummary();
+  renderTasks();
+}
+
+function setDirectorTab(id) { directorViewUnit=id; enterApp(); }
+
+// ============================================================
+// SUMMARY
+// ============================================================
+function renderSummary() {
+  let list = getBaseTasks();
+  const total = list.length;
+  const overdue = list.filter(t=>getEffectiveStatus(t)==='overdue').length;
+  const inprogress = list.filter(t=>getEffectiveStatus(t)==='inprogress').length;
+  const done = list.filter(t=>getEffectiveStatus(t)==='done').length;
+  document.getElementById('summaryRow').innerHTML = `
+    <div class="summary-card overdue"><div class="num">${overdue}</div><div class="lbl">🔴 เกินกำหนด</div></div>
+    <div class="summary-card inprogress"><div class="num">${inprogress}</div><div class="lbl">🟡 กำลังดำเนินการ</div></div>
+    <div class="summary-card done"><div class="num">${done}</div><div class="lbl">🟢 ส่งแล้ว</div></div>
+    <div class="summary-card total"><div class="num">${total}</div><div class="lbl">📋 งานทั้งหมด</div></div>
+  `;
+}
+
+function getBaseTasks() {
+  let list = [...tasks];
+  if (session.role==='director') { if(directorViewUnit!==null) list=list.filter(t=>t.unitId===directorViewUnit); }
+  else { list=list.filter(t=>t.unitId===session.unitId); }
+  return list;
+}
+
+function getVisibleTasks() {
+  let list = getBaseTasks();
+  const q = document.getElementById('searchInput')?.value.toLowerCase()||'';
+  const sf = document.getElementById('filterStatus')?.value||'';
+  if (q) list=list.filter(t=>t.title.toLowerCase().includes(q)||(t.detail||'').toLowerCase().includes(q)||(t.note||'').toLowerCase().includes(q));
+  if (sf) list=list.filter(t=>getEffectiveStatus(t)===sf);
+  list.sort((a,b)=>new Date(b.dateStart)-new Date(a.dateStart));
+  return list;
+}
+
+const THAI_MONTHS=['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
+function formatDateDisplay(ds) {
+  const d=new Date(ds+'T00:00:00');
+  return { day:d.getDate(), month:THAI_MONTHS[d.getMonth()], year:d.getFullYear()+543 };
+}
+
+function renderTasks() {
+  const list = getVisibleTasks();
+  const container = document.getElementById('taskList');
+  container.innerHTML='';
+  if (!list.length) {
+    container.innerHTML=`<div class="empty-state"><div class="icon">📋</div><p>ไม่พบงานที่ตรงกับเงื่อนไข</p></div>`;
+    return;
+  }
+  list.forEach(task=>{
+    const u=CONFIG.units[task.unitId];
+    const d=formatDateDisplay(task.dateStart);
+    const canEdit=session.role==='admin'&&session.unitId===task.unitId;
+    const eff=getEffectiveStatus(task);
+    const due=dueDateText(task);
+    let dateRange='';
+    if(task.dateEnd&&task.dateEnd!==task.dateStart){
+      const d2=formatDateDisplay(task.dateEnd);
+      dateRange=`<div style="font-size:10px;color:var(--text-light);margin-top:1px">ถึง ${d2.day} ${d2.month} ${d2.year}</div>`;
+    }
+    const statusBadge=eff==='overdue'
+      ?`<span class="status-badge overdue">🔴 เกินกำหนด</span>`
+      :`<span class="status-badge ${eff}">${STATUS_ICON[eff]} ${STATUS_LABEL[eff]||''}</span>`;
+
+    // Status change dropdown (admin only)
+    const statusCtrl = canEdit ? `
+      <select class="status-select" onchange="updateStatus('${task.id}',this.value)">
+        <option value="pending" ${(task.status||'pending')==='pending'?'selected':''}>⚪ รอดำเนินการ</option>
+        <option value="inprogress" ${task.status==='inprogress'?'selected':''}>🟡 กำลังดำเนินการ</option>
+        <option value="done" ${task.status==='done'?'selected':''}>🟢 ส่งแล้ว</option>
+      </select>` : statusBadge;
+
+    const card=document.createElement('div');
+    card.className='task-card'; card.dataset.unit=task.unitId;
+    card.innerHTML=`
+      <div class="task-date-col">
+        <div class="task-date-day">${d.day}</div>
+        <div class="task-date-month">${d.month}</div>
+        <div class="task-date-year">${d.year}</div>
+        ${dateRange}
+      </div>
+      <div class="task-divider"></div>
+      <div class="task-body">
+        <div class="task-title">${escHtml(task.title)}</div>
+        ${task.detail?`<div class="task-detail">${escHtml(task.detail)}</div>`:''}
+        ${task.note?`<div class="task-detail" style="color:var(--text-light);margin-top:3px">📝 ${escHtml(task.note)}</div>`:''}
+        ${task.link?`<a class="task-link" href="${escHtml(task.link)}" target="_blank" rel="noopener">🔗 เปิดเอกสาร</a>`:''}
+        <div class="task-footer">
+          ${statusCtrl}
+          ${due?`<span class="due-badge ${due.cls}">📅 ${due.text}</span>`:''}
+          ${session.role==='director'?`<span class="tag tag-unit-${task.unitId}">${u.name}</span>`:''}
+        </div>
+      </div>
+      ${canEdit?`<div class="task-actions">
+        <button class="btn-icon" title="แก้ไข" onclick="openEditTask('${task.id}')">✏️</button>
+        <button class="btn-icon delete" title="ลบ" onclick="deleteTask('${task.id}')">🗑</button>
+      </div>`:''}
+    `;
+    container.appendChild(card);
+  });
+}
+
+function updateStatus(id, newStatus) {
+  const idx=tasks.findIndex(t=>t.id===id);
+  if(idx!==-1){ tasks[idx].status=newStatus; saveTasks(); renderSummary(); renderTasks(); }
+}
+
+function escHtml(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+// ============================================================
+// CRUD
+// ============================================================
+function openAddTask() {
+  editingId=null;
+  document.getElementById('taskModalTitle').textContent='เพิ่มงานใหม่';
+  ['fTitle','fDetail','fNote','fLink'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('fDateStart').value='';
+  document.getElementById('fDateEnd').value='';
+  document.getElementById('fDueDate').value='';
+  document.getElementById('fStatus').value='pending';
+  document.getElementById('taskError').textContent='';
+  document.getElementById('taskOverlay').classList.remove('hidden');
+}
+function openEditTask(id) {
+  const task=tasks.find(t=>t.id===id); if(!task)return;
+  editingId=id;
+  document.getElementById('taskModalTitle').textContent='แก้ไขงาน';
+  document.getElementById('fTitle').value=task.title;
+  document.getElementById('fDateStart').value=task.dateStart;
+  document.getElementById('fDateEnd').value=task.dateEnd||'';
+  document.getElementById('fDueDate').value=task.dueDate||'';
+  document.getElementById('fStatus').value=task.status||'pending';
+  document.getElementById('fDetail').value=task.detail||'';
+  document.getElementById('fNote').value=task.note||'';
+  document.getElementById('fLink').value=task.link||'';
+  document.getElementById('taskError').textContent='';
+  document.getElementById('taskOverlay').classList.remove('hidden');
+}
+function closeTaskModal() { document.getElementById('taskOverlay').classList.add('hidden'); }
+function saveTask() {
+  const title=document.getElementById('fTitle').value.trim();
+  const dateStart=document.getElementById('fDateStart').value;
+  if(!title){document.getElementById('taskError').textContent='กรุณาใส่ชื่องาน';return;}
+  if(!dateStart){document.getElementById('taskError').textContent='กรุณาเลือกวันที่เริ่ม';return;}
+  const data={
+    title, dateStart,
+    dateEnd:document.getElementById('fDateEnd').value,
+    dueDate:document.getElementById('fDueDate').value,
+    status:document.getElementById('fStatus').value,
+    detail:document.getElementById('fDetail').value.trim(),
+    note:document.getElementById('fNote').value.trim(),
+    link:document.getElementById('fLink').value.trim(),
+  };
+  if(editingId){ const idx=tasks.findIndex(t=>t.id===editingId); if(idx!==-1) tasks[idx]={...tasks[idx],...data}; }
+  else { tasks.push({id:Date.now().toString(),unitId:session.unitId,createdAt:new Date().toISOString(),...data}); }
+  saveTasks(); closeTaskModal(); renderSummary(); renderTasks();
+}
+function deleteTask(id) {
+  if(!confirm('ยืนยันการลบงานนี้?'))return;
+  tasks=tasks.filter(t=>t.id!==id); saveTasks(); renderSummary(); renderTasks();
+}
+
+// ============================================================
+// INIT + DEMO DATA
+// ============================================================
+buildLoginUI();
+if (!tasks.length) {
+  const today=new Date();
+  const fmt=d=>d.toISOString().split('T')[0];
+  const add=days=>{const d=new Date(today);d.setDate(d.getDate()+days);return d;};
+  tasks=[
+    {id:'d1',unitId:0,title:'ประชุมสำนักงาน ครั้งที่ 1',dateStart:fmt(add(6)),dateEnd:fmt(add(6)),dueDate:fmt(add(5)),status:'inprogress',detail:'10.00 น. ห้องประชุม บก.อำนวยการ',note:'เตรียมวาระที่ 3 ให้เสร็จก่อนวันประชุม',link:'',createdAt:new Date().toISOString()},
+    {id:'d2',unitId:1,title:'ประชุมยุทธศาสตร์ประจำเดือน',dateStart:fmt(add(16)),dateEnd:fmt(add(16)),dueDate:fmt(add(14)),status:'pending',detail:'13.00 น. ห้องประชุมชั้น 3',note:'',link:'',createdAt:new Date().toISOString()},
+    {id:'d3',unitId:2,title:'การประชุมร่วม ตร.ไทย–มาเลเซีย ครั้งที่ 29',dateStart:fmt(add(9)),dateEnd:fmt(add(12)),dueDate:fmt(add(7)),status:'pending',detail:'ณ กรุงกัวลาลัมเปอร์',note:'',link:'',createdAt:new Date().toISOString()},
+    {id:'d4',unitId:2,title:'ประชุม จนท.อาวุโสอาเซียน ครั้งที่ 26',dateStart:fmt(add(2)),dateEnd:fmt(add(4)),dueDate:fmt(add(-1)),status:'pending',detail:'ห้องประชุม 2 อาคาร 1 ตร.',note:'',link:'',createdAt:new Date().toISOString()},
+    {id:'d5',unitId:0,title:'อบรมการใช้งานระบบ e-Filing',dateStart:fmt(add(20)),dateEnd:'',dueDate:'',status:'done',detail:'รร.แคนทารี ฮิลส์ เชียงใหม่',note:'ส่งรายงานเรียบร้อยแล้ว',link:'',createdAt:new Date().toISOString()},
+  ];
+  saveTasks();
+}
+</script>
+</body>
+</html>
