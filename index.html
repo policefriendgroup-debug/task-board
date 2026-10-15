@@ -567,13 +567,31 @@ function renderSummary() {
   `;
 }
 
+// Read the first clock time from the existing "time and location" field.
+// Keep untimed tasks last without changing their stored data.
+function taskTimeMinutes(task) {
+  const detail = String(task.detail || '').replace(/[๐-๙]/g, digit =>
+    String(digit.charCodeAt(0) - '๐'.charCodeAt(0)));
+  const clock = /(?:^|[^\d.\/:-])([01]?\d|2[0-3])[:.]([0-5]\d)(?![\d.\/:])/g;
+  const match = clock.exec(detail);
+  return match ? Number(match[1]) * 60 + Number(match[2]) : Infinity;
+}
+
+function compareTaskSchedule(a, b) {
+  const dateOrder = String(b.dateStart || '').localeCompare(String(a.dateStart || ''));
+  if (dateOrder) return dateOrder;
+  const timeA = taskTimeMinutes(a);
+  const timeB = taskTimeMinutes(b);
+  return timeA === timeB ? 0 : timeA < timeB ? -1 : 1;
+}
+
 function getVisibleTasks() {
   let list=getBaseTasks();
   const q=document.getElementById('searchInput')?.value.toLowerCase()||'';
   const sf=document.getElementById('filterStatus')?.value||'';
   if(q)list=list.filter(t=>t.title.toLowerCase().includes(q)||(t.detail||'').toLowerCase().includes(q)||(t.note||'').toLowerCase().includes(q));
   if(sf)list=list.filter(t=>getEffectiveStatus(t)===sf);
-  list.sort((a,b)=>new Date(b.dateStart)-new Date(a.dateStart));
+  list.sort(compareTaskSchedule);
   return list;
 }
 
@@ -702,3 +720,4 @@ buildLoginUI();
 </script>
 </body>
 </html>
+
